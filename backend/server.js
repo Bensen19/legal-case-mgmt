@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg');
+const pool = require('./db/db');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
@@ -8,6 +8,8 @@ require('dotenv').config();
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const PORT = process.env.PORT || 5432;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -69,7 +71,6 @@ app.get('/cases', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
