@@ -1,12 +1,14 @@
 const { Pool } = require('pg');
-require('dotenv').config();
-
-const isProduction = process.env.NODE_ENV === "production";
+require('dotenv').config(); // ✅ Loads environment variables
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: isProduction ? { rejectUnauthorized: false } : false, // Disable SSL for localhost
+  ssl: {
+    rejectUnauthorized: false // ✅ Enables SSL for AWS RDS
+  }
 });
 
-module.exports = pool;
+module.exports = pool; // ✅ Ensures the pool is properly exported
+
+
 

@@ -9,7 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 5432;
+const PORT = process.env.PORT || 5000; // ✅ FIXED: Set correct server port
 
 const passwordValidator = require('password-validator');
 const schema = new passwordValidator();
@@ -17,15 +17,18 @@ schema.is().min(8).has().uppercase().has().lowercase().has().digits();
 
 // User Registration
 app.post('/register', async (req, res) => {
-  const { name, email, password, role } = req.body;
-  if (!schema.validate(password)) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters, contain uppercase, lowercase, and digits' });
+  const { name, email, password, role, specialization } = req.body;
+
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required' });
   }
+
   const hashedPassword = await bcrypt.hash(password, 12);
+
   try {
     const result = await pool.query(
-      'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role',
-      [name, email, hashedPassword, role]
+      'INSERT INTO users (name, email, password, role, specialization) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, role, specialization',
+      [name, email, hashedPassword, role, specialization]
     );
     res.json(result.rows[0]);
   } catch (error) {
@@ -33,50 +36,40 @@ app.post('/register', async (req, res) => {
   }
 });
 
+
+
 // User Login
 app.post('/login', async (req, res) => {
-  const { email, password } = req.body; // Ensure password is in raw text
+  const { email, password } = req.body;
 
   try {
     console.log("🔹 Login attempt for email:", email);
-    console.log("🔹 Raw entered password:", password); // Should be plain text
 
-    // 1️⃣ Fetch user from database
+    // Fetch user from database
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
     if (result.rows.length === 0) {
-      console.log("❌ User not found for email:", email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const user = result.rows[0];
 
-    // 2️⃣ Debug: Log stored and entered passwords
-    console.log("🔹 Stored hashed password from DB:", user.password);
-
-    // 3️⃣ Compare raw password (NOT hashed) with stored hash
+    // Compare raw password with stored hash
     const isMatch = await bcrypt.compare(password, user.password);
 
-    console.log("🔹 Password comparison result:", isMatch);
-
     if (!isMatch) {
-      console.log("❌ Password comparison failed!");
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // 4️⃣ Generate JWT token if login is successful
+    // Generate JWT token
     const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-    console.log("✅ User authenticated successfully!");
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
 
   } catch (error) {
-    console.error("🚨 Login error:", error);
     res.status(500).json({ error: error.message });
   }
 });
-
-
 
 // Create Case
 app.post('/cases', async (req, res) => {
@@ -93,6 +86,7 @@ app.post('/cases', async (req, res) => {
 });
 
 const authMiddleware = require('./middleware/authMiddleware');
+
 // Get All Cases
 app.get('/cases', authMiddleware, async (req, res) => {
   try {
@@ -102,11 +96,12 @@ app.get('/cases', authMiddleware, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 // Get experts
 app.get('/experts', async (req, res) => {
   const { specialization, location } = req.query;
   try {
-    let query = 'SELECT * FROM users WHERE role = \'expert\'';
+    let query = 'SELECT id, name, email, role, specialization FROM users WHERE role = \'expert\'';
     const params = [];
 
     if (specialization) {
@@ -125,6 +120,7 @@ app.get('/experts', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // Update a Case by ID
 app.put('/cases/:id', async (req, res) => {
@@ -147,7 +143,6 @@ app.put('/cases/:id', async (req, res) => {
   }
 });
 
-// Delete a Case by ID
 app.delete('/cases/:id', async (req, res) => {
   const { id } = req.params;
 
@@ -165,7 +160,7 @@ app.delete('/cases/:id', async (req, res) => {
 });
 
 
-
+// ✅ FIXED: Correct port number
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
